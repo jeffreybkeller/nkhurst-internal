@@ -64,9 +64,9 @@ const CustomerTypeahead: React.FC<ChildProps> = ({ onCustomerSelect }) => {
       renderToken={(option, props, index) => {
         const customer = option as Customer;
         return (
-          <>
+          <div key={index.toString()}>
             <div>{customer.CustNumber} - {customer.CustName}</div>
-          </>
+          </div>
         )
       }}
     />

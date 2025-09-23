@@ -39,6 +39,10 @@ export default function Home() {
     setSelectedCustomersValue(customersString);
   };
 
+  const handlePOPClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    fetchPOPData(null, null, null, null);
+  };
+
   const options = {
     hAxis: {
       title: 'Time Period', // Sets the title of the axis
@@ -158,6 +162,63 @@ export default function Home() {
     }
   }
   
+
+  async function fetchPOPData(timePeriod: any, item: any, countType: any, customer: any) {
+    try {
+
+      console.log("fetchPOPdata")
+
+      const dataURL = "/api/view-data/period-over-period?timePeriod=" + timePeriod + "&item=" + item
+        + "&countType=" + countType + "&customer=" + customer;
+      const response = await fetch(dataURL);
+      const result = await response.json();
+      
+      if (result.success) {
+
+        let chartD = [];
+
+        interface dataRow {
+          bucket: string,
+          attr1: number,
+          attr2: number
+        }
+        let tempArray: dataRow[];
+        tempArray = [];
+
+        let attrArray: string[] = [];
+
+        // Convert to array of objects
+        const x = result.data[0].start_date.map((start_date: any, index: string | number) => ({
+          start_date,
+          qty: result.data[0].qty[index]
+        }));
+
+        const sortedByDate = x.sort((a: { start_date: any; }, b: { start_date: string; }) => a.start_date.localeCompare(b.start_date));
+
+        chartD.push(["Period", "Total",            {
+              role: "annotation",
+              type: "string",
+            }]);
+
+          for (const row of sortedByDate) {
+            try {
+              chartD.push([row["start_date"], row.qty, row.qty])
+            } catch (e) {
+              console.log(e)
+            }
+          }
+       
+          setChartData(chartD);
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      //setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  }
+
 
   async function fetchItemOptions() {
     try {
@@ -318,6 +379,9 @@ const chartEvents: ReactGoogleChartEvent[] = [
             </tr>
           </tbody>
         </table>
+
+        <button onClick={handlePOPClick}>Period over Period demo</button>
+
       </div>
     </div>
   );
