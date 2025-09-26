@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 
 async function selectForTimeFrame(weeks, years) {
 
+    // If needed, we can use the date utils to use the previous week as the start (Sun-Sat) 
+
     const selectStatement = "SELECT " + `FORMAT(DATEADD(year, ${years}, DATEADD(week, ${weeks}, GETDATE())), 'yyyy-MM-dd') as start_date, `
         + "SUM(QtytoShip) AS qty, COUNT(*) AS count "
         + "FROM dbo.[NKH Orders CY 4 yr] "
@@ -14,10 +16,54 @@ async function selectForTimeFrame(weeks, years) {
 
 }
 
-
 export async function GET(request) {
-  try {
 
+    try {
+
+        async function buildQuery(years) {
+
+            const query =
+
+                `WITH period_one AS (${await selectForTimeFrame(-52, `${years}`)}), `
+                + ` period_two AS (${await selectForTimeFrame(-26, `${years}`)}), `
+                + ` period_three AS (${await selectForTimeFrame(-13, `${years}`)}), `
+                + ` period_four AS (${await selectForTimeFrame(-4, `${years}`)}) `
+
+                + "SELECT "
+                + "p1.start_date, "
+                + "p2.start_date, "
+                + "p3.start_date, "
+                + "p4.start_date, "
+
+                + "p1.qty, "
+                + "p2.qty, "
+                + "p3.qty, "
+                + "p4.qty, "
+
+                + "p1.count, "
+                + "p2.count, "
+                + "p3.count, "
+                + "p4.count "
+
+                + "FROM period_one p1 "
+                + "CROSS JOIN period_two p2 "
+                + "CROSS JOIN period_three p3 "
+                + "CROSS JOIN period_four p4 ";
+
+            return query;
+        }
+
+        const pool = await getConnection();
+
+        const queryOne = await buildQuery(0);
+        const queryTwo = await buildQuery(-1);
+
+        const resultOne = await pool.request().query(queryOne);
+        const resultTwo = await pool.request().query(queryTwo);
+
+        const data = { set1: resultOne.recordsets[0][0], set2: resultTwo.recordsets[0][0]}
+
+/*
     const query = `WITH current_period AS (${await selectForTimeFrame(-4, 0)}), `
         + ` prior_year_one AS (${await selectForTimeFrame(-4, -1)}), `
         + ` prior_year_two AS (${await selectForTimeFrame(-4, -2)}), `
@@ -44,14 +90,15 @@ export async function GET(request) {
         + "CROSS JOIN prior_year_two pp2 "
         + "CROSS JOIN prior_year_three pp3 "
         + "CROSS JOIN prior_year_four pp4 ";
+*/
 
-    const pool = await getConnection();
-    const result = await pool.request().query(query);
+
+
 
     return NextResponse.json({
       success: true,
-      data: result.recordset,
-      count: result.recordset.length
+      data: data,
+      count: 0
     });
   } catch (error) {
     console.error('Database query error:', error);

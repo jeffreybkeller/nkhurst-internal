@@ -2,6 +2,7 @@
 
 import { getConnection, sql } from '../../../lib/database';
 import { NextResponse } from 'next/server';
+import { getDateMonthsPrior } from '../../../lib/dateutils';
 
 export async function GET(request) {
   try {
@@ -16,7 +17,11 @@ export async function GET(request) {
       ? "count(*)" // "count(DISTINCT([Cust#]))" // "count(DISTINCT([Parent Cust]))"
       : "sum(dbo.[NKH Orders CY 4 yr].QtytoShip)"
     
-    let timePeriodClause = timePeriod == "quarterly" ? "CONCAT(OrdYear, '-', OrdQtr)" : "OrdYear";
+    let timePeriodClause = timePeriod == "quarterly" 
+      ?  "CONCAT(OrdYear, '-', OrdQtr)"
+      : timePeriod == "monthly"
+        ? "CONCAT(OrdYear, '-', RIGHT('00'+CAST(OrdMonth AS VARCHAR(2)),2) )"
+        : "OrdYear";
 
     let selectClause = "SELECT " + timePeriodClause + " as \"time\", " + countTypeClause + " as \"count\" ";
 
@@ -40,6 +45,15 @@ export async function GET(request) {
         whereItemClause ?  "WHERE " + whereItemClause :
         whereCustomerClause ?  "WHERE " + whereCustomerClause :
         "";
+
+    let timePeriodWhereClause = "dbo.[NKH Orders CY 4 yr].OrderDate > '" + getDateMonthsPrior(new Date(), 22) + "' "
+    timePeriod == "monthly" && whereClause == ""
+      ? whereClause = "WHERE " + timePeriodWhereClause
+      : timePeriod == "monthly" ?
+        whereClause = "AND " + timePeriodWhereClause
+        : "";
+
+        console.log("timeperiod: " + whereClause)
 
     let groupByClause = "GROUP BY " + timePeriodClause;
     if (customer && customer != 'null') {

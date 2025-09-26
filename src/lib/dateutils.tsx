@@ -21,3 +21,10 @@ function getDateWeeksPrior(date: Date, weeks: number): Date {
   return resultDate;
 }
 
+function getDateMonthsPrior(date: Date, months: number): String {
+  const lastMonth = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+  const resultDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth() - months, 1);
+  return resultDate.getFullYear() + "-" + String(resultDate.getMonth()).padStart(2, '0') + "-" + String(resultDate.getDate()).padStart(2, '0');
+}
+
+export { getDateMonthsPrior }
