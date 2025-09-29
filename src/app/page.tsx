@@ -122,7 +122,6 @@ export default function Home() {
 
           chartD.push(chartHeader);
 
-  
           for (const row of result.data) {
             try {
               // Build the temp array
@@ -166,90 +165,70 @@ export default function Home() {
   async function fetchPOPData(timePeriod: any, item: any, countType: any, customer: any) {
     try {
 
-      console.log("fetchPOPdata")
-
       const dataURL = "/api/view-data/period-over-period?timePeriod=" + timePeriod + "&item=" + item
         + "&countType=" + countType + "&customer=" + customer;
       const response = await fetch(dataURL);
       const result = await response.json();
       
       if (result.success) {
-      console.log("fetchPOPdata a")
 
-        let chartD = [];
+        let chartData = [];
 
-        interface dataRow {
-          bucket: string,
-
-
-          Period1Qty1: number,
-          Period1Qty2: number,
-          Period1Qty3: number,
-          Period1Qty4: number,
-
-          Period2Qty1: number,
-          Period2Qty2: number,
-          Period2Qty3: number,
-          Period2Qty4: number,
-
-
-          dollarSalesChange1: number,
-          dollarSalesChange2: number,
-          dollarSalesChange3: number,
-          dollarSalesChange4: number
+        interface SqlResult {
+          [key: string]: any;
         }
 
-        let tempArray: dataRow[];
-        tempArray = [];
+        let dataSets :SqlResult[] = [];
 
-        let d: dataRow;
-        d = {
-          bucket: "All",
-
-          Period1Qty1: result.data.set1.qty[0],
-          Period1Qty2: result.data.set1.qty[1],
-          Period1Qty3: result.data.set1.qty[2],
-          Period1Qty4: result.data.set1.qty[3],
-
-          Period2Qty1: result.data.set2.qty[0],
-          Period2Qty2: result.data.set2.qty[1],
-          Period2Qty3: result.data.set2.qty[2],
-          Period2Qty4: result.data.set2.qty[3],
-
-          dollarSalesChange1: result.data.set1.qty[0] - result.data.set2.qty[0],
-          dollarSalesChange2: result.data.set1.qty[1] - result.data.set2.qty[1],
-          dollarSalesChange3: result.data.set1.qty[2] - result.data.set2.qty[2],
-          dollarSalesChange4: result.data.set1.qty[3] - result.data.set2.qty[3],
+        function buildObjectFromArrays(keys: string[], values: any[]): SqlResult {
+          const obj: SqlResult = {};
+          keys.forEach((key, index) => {
+            obj[key] = values[index];
+          });
+          return obj;
         }
-        tempArray.push(d);
 
-        /*
-        let attrArray: string[] = [];
+        result.data.sets[0].qty.forEach((_: any, i: number) => {
 
-        // Convert to array of objects
-        const x = result.data[0].start_date.map((start_date: any, index: string | number) => ({
-          start_date,
-          qty: result.data[0].qty[index]
-        }));
+          let keys = []
+          keys.push("period");
+          result.data.sets[0].qty.forEach((_: any, j: number) => {
+            keys.push("qty" + j);
+            keys.push("qty" + j + "header")
+          });
 
-        const sortedByDate = x.sort((a: { start_date: any; }, b: { start_date: string; }) => a.start_date.localeCompare(b.start_date));
+          let values: any[] = [];
+          values.push(result.data.sets[0].period_length[i]);
+          result.data.sets[0].qty.forEach((_: any, j: number) => {
+            values.push(result.data.sets[j].qty[i]);
+            values.push(result.data.sets[j].qty[i])
+          });
 
-        chartD.push(["Period", "Total",
-            {
+          const dataSet = buildObjectFromArrays(keys, values);
+
+          dataSets.push(dataSet);
+
+        });
+
+        let attrArray: any[] = [];
+
+        // Create the headers for Google Viz
+        attrArray.push("Period");
+        dataSets.keys().forEach((_: any, j: number) => {
+          attrArray.push("Period " + (j + 1))
+          attrArray.push({
               role: "annotation",
               type: "string",
-            }]);
+            }) 
+        })
+        chartData.push(attrArray);
 
-          for (const row of sortedByDate) {
-            try {
-              chartD.push([row["start_date"], row.qty, row.qty])
-            } catch (e) {
-              console.log(e)
-            }
-          }
+        // Add the data for Google Viz
+        dataSets.forEach((_: any, j: number) => {
+          chartData.push(dataSets.map((obj: { [s: string]: unknown; } | ArrayLike<unknown>) => Object.values(obj))[j]);
+        });
        
-          setChartData(chartD);*/
-
+        setChartData(chartData);
 
       } else {
         setError(result.message);

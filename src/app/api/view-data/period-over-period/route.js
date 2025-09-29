@@ -7,8 +7,25 @@ async function selectForTimeFrame(weeks, years) {
 
     // If needed, we can use the date utils to use the previous week as the start (Sun-Sat) 
 
+    let time_frame = `${weeks} Weeks`;
+
+    switch (weeks) {
+        case 26 || -26 :
+            time_frame = "Half Year";
+            break;
+        case 13 || -13 :
+            time_frame = "Quarter";
+            break;
+        case 4 || -4 :
+            time_frame = "4 Weeks";
+            break;
+        default:
+            break;
+    }
+
     const selectStatement = "SELECT " + `FORMAT(DATEADD(year, ${years}, DATEADD(week, ${weeks}, GETDATE())), 'yyyy-MM-dd') as start_date, `
-        + "SUM(QtytoShip) AS qty, COUNT(*) AS count "
+        + "SUM(QtytoShip) AS qty, COUNT(*) AS count, "
+        + `'${time_frame}' as period_length `
         + "FROM dbo.[NKH Orders CY 4 yr] "
         + "WHERE OrderDate >= " + `DATEADD(year, ${years}, DATEADD(week, ${weeks}, GETDATE())) `
         + `AND OrderDate < DATEADD(year, ${years}, GETDATE()) `
@@ -30,6 +47,12 @@ export async function GET(request) {
                 + ` period_four AS (${await selectForTimeFrame(-4, `${years}`)}) `
 
                 + "SELECT "
+
+                + "p1.period_length, "
+                + "p2.period_length, "
+                + "p3.period_length, "
+                + "p4.period_length, "
+
                 + "p1.start_date, "
                 + "p2.start_date, "
                 + "p3.start_date, "
@@ -55,60 +78,28 @@ export async function GET(request) {
 
         const pool = await getConnection();
 
-        const queryOne = await buildQuery(0);
-        const queryTwo = await buildQuery(-1);
+        let data = { sets: [] };
 
-        const resultOne = await pool.request().query(queryOne);
-        const resultTwo = await pool.request().query(queryTwo);
+        for (let i = -3; i <= 0; i++) {
+            const query = await buildQuery(i); 
+            const result = await pool.request().query(query);
+            data.sets.push( result.recordsets[0][0]);
+        }
 
-        const data = { set1: resultOne.recordsets[0][0], set2: resultTwo.recordsets[0][0]}
-
-/*
-    const query = `WITH current_period AS (${await selectForTimeFrame(-4, 0)}), `
-        + ` prior_year_one AS (${await selectForTimeFrame(-4, -1)}), `
-        + ` prior_year_two AS (${await selectForTimeFrame(-4, -2)}), `
-        + ` prior_year_three AS (${await selectForTimeFrame(-4, -3)}), `
-        + ` prior_year_four AS (${await selectForTimeFrame(-4, -4)}) `
-        + "SELECT "
-        + "cp.start_date, "
-        + "pp.start_date, "
-        + "pp2.start_date, "
-        + "pp3.start_date, "
-        + "pp4.start_date, "
-        + "cp.qty, "
-        + "pp.qty, "
-        + "pp2.qty, "
-        + "pp3.qty, "
-        + "pp4.qty, "
-        + "cp.count, "
-        + "pp.count, "
-        + "pp2.count, "
-        + "pp3.count, "
-        + "pp4.count "
-        + "FROM current_period cp "
-        + "CROSS JOIN prior_year_one pp "
-        + "CROSS JOIN prior_year_two pp2 "
-        + "CROSS JOIN prior_year_three pp3 "
-        + "CROSS JOIN prior_year_four pp4 ";
-*/
-
-
-
-
-    return NextResponse.json({
-      success: true,
-      data: data,
-      count: 0
-    });
-  } catch (error) {
-    console.error('Database query error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'Database query failed',
-        error: error.message
-      },
-      { status: 500 }
+        return NextResponse.json({
+            success: true,
+            data: data,
+            count: 0
+        });
+    } catch (error) {
+        console.error('Database query error:', error);
+        return NextResponse.json(
+            {
+            success: false,
+            message: 'Database query failed',
+            error: error.message
+            },
+        { status: 500 }
     );
-  }
+    }
 }
