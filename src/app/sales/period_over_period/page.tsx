@@ -2,10 +2,10 @@
 
 import { useState, useEffect, Suspense, use, SetStateAction } from 'react';
 import { Chart, ReactGoogleChartEvent } from "react-google-charts";
-import {CustomerTypeahead, Customer } from "./components/CustomerTypeahead";
+import {CustomerTypeahead, Customer } from "../../components/CustomerTypeahead";
 import Link from 'next/link';
 
-export default function Home() {
+export default function Page() {
 
   const [chartdata, setChartData] = useState<any[][] | null>(null); // useState<any[]>([]); // useState<any[][] | null>(null);
 
@@ -40,10 +40,6 @@ export default function Home() {
     setSelectedCustomersValue(customersString);
   };
 
-  const handlePOPClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    fetchPOPData(null, null, null, null);
-  };
-
   const options = {
     hAxis: {
       title: 'Time Period', // Sets the title of the axis
@@ -69,99 +65,6 @@ export default function Home() {
     },
   //  legend: { position: 'none' }
   };
-
-  async function fetchData(timePeriod: any, item: any, countType: any, customer: any) {
-    try {
-
-      const dataURL = "/api/view-data?timePeriod=" + timePeriod + "&item=" + item
-        + "&countType=" + countType + "&customer=" + customer;
-      const response = await fetch(dataURL);
-      const result = await response.json();
-      
-      if (result.success) {
-
-        let chartD = [];
-
-        // If there is only one customer selected, build the Google Charts data
-        if (!customer || customer.split(',').length == 1) {
-
-          chartD.push(["Period", "Total",
-            {
-              role: "annotation",
-              type: "string",
-            }]);
-
-          for (const row of result.data) {
-            try {
-              chartD.push([row["time"], row.count, row.count])
-            } catch (e) {
-              console.log(e)
-            }
-          }
-
-        } else { // There are multiple customers selected, build the Google Charts data arrays
-
-          interface dataRow {
-            bucket: string,
-            attr1: number,
-            attr2: number
-          }
-          let tempArray: dataRow[];
-          tempArray = [];
-
-          let attrArray: string[] = [];
-
-          // Build attribute array
-          for (const row of result.data) {
-            // If the customer doesn't exist, add them
-            if (!attrArray.find((item) => item === row.Customer)) {
-              attrArray.push(row.Customer)
-            }
-          }
-
-          let chartHeader = ["Period"].concat(attrArray);
-
-          chartD.push(chartHeader);
-
-          for (const row of result.data) {
-            try {
-              // Build the temp array
-                const foundItem = tempArray.find((item) => item.bucket === row["time"]);
-                if (foundItem) {
-                  attrArray.findIndex((x) => x === row.Customer) == 0
-                    ? foundItem.attr1 = row.count
-                    : foundItem.attr2 = row.count
-                } else {
-                  attrArray.findIndex((x) => x === row.Customer) == 0
-                    ? tempArray.push({bucket: row["time"], attr1: row.count, attr2: 0})
-                    : tempArray.push({bucket: row["time"], attr1: 0, attr2: row.count})
-                }
-            } catch (e) {
-              console.log(e)
-            }
-          }
-
-          // Convert tempArray (an array of JSON objects) to array of arrays
-          for (const temp of tempArray) {
-            chartD.push([temp.bucket, temp.attr1, temp.attr2])
-          }
-        }
-
-        if (result.count > 0) {
-          setChartData(chartD);
-        } else {
-          setChartData(null);
-        }
-      } else {
-        setError(result.message);
-      }
-    } catch (err) {
-      //setError('Failed to fetch data');
-    } finally {
-      setLoading(false);
-    }
-  }
-  
 
   async function fetchPOPData(timePeriod: any, item: any, countType: any, customer: any) {
     try {
@@ -308,11 +211,11 @@ export default function Home() {
 
   useEffect(() => {
     setChartReady(false);
-    fetchData(selectedValue, selectedItemValue, selectedCountValue, selectedCustomersValue);
+    fetchPOPData(selectedValue, selectedItemValue, selectedCountValue, selectedCustomersValue);
   }, [selectedValue, selectedItemValue, selectedCountValue, selectedCustomersValue]);
 
   useEffect(() => {
-   fetchData("annually", null, null, null);
+   fetchPOPData("annually", null, null, null);
    fetchItemOptions();
    fetchCustomers();
   }, []);
@@ -330,14 +233,83 @@ const chartEvents: ReactGoogleChartEvent[] = [
 
   return (
     <div style={{ padding: "40px" }}>
+      <Link href="/">&lt; Main</Link>
+
       <div style={{ paddingBottom: "10px" }}>
-        <h1>Main</h1>
+        <h1>Orders - Period over Period Analysis</h1>
       </div>
-      <div>
-        <Link href="/sales/sales_summary">Sales Summary</Link>
-      </div>
-      <div>
-        <Link href="/sales/period_over_period">Sales Period Over Period</Link>
+
+      { !chartReady && 
+         <div className="loader"></div>
+      }
+      { !chartdata && !loading &&
+         <div>No chart data available</div>
+      }
+      
+      <Chart chartType="ColumnChart" width="100%" height="100%" data={chartdata ? chartdata : []}
+        options={options} chartEvents={chartEvents}
+        style={{display: !chartReady || !chartdata ? "none" : "block"}}/>
+      
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        padding: "10px",
+        gap: "10px"}}
+      >
+
+        <h3>Options</h3>
+
+        <table>
+          <tbody>
+            <tr className="optionWrapper">
+              <td className="label">Period</td>
+              <td>
+                <select id="select-timeperiod" value={selectedValue} onChange={handleChange}
+                  style={{ width: "min-content"}}>
+                  <option value="annually">Annually</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </td>
+            </tr>
+
+            <tr className="optionWrapper">
+              <td className="label">Measure</td>
+              <td>
+                <select id="select-amount" value={selectedCountValue} onChange={handleCountChange}
+                  style={{ width: "min-content"}}>
+                  <option value="count">Number of Orders</option>
+                  <option value="quantity">Quantity Ordered</option>
+                </select>
+              </td>
+            </tr>
+
+            <tr className="optionWrapper">
+              <td className="label">Item</td>
+              <td>
+                <select id="select-item" value={selectedItemValue} onChange={handleItemChange}
+                  style={{ width: "min-content"}}>
+                  <option value="">Select an item</option>
+                  {selectedItemOptions.map((option, i) => (
+                    <option key={i} value={option.value}>
+                      {option.value + " " + option.label}
+                    </option>
+                  ))}
+                </select>
+              </td>
+            </tr>
+
+            <tr className="optionWrapper">
+              <td className="label">Parent Customer</td>
+              <td>
+              <CustomerTypeahead 
+                onCustomerSelect={handleCustomerChange}
+              />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
       </div>
     </div>
   );
